@@ -1,0 +1,4 @@
+FROM scratch
+
+COPY ./bin/linkstate-node-ext /linkstate-node-ext
+ENTRYPOINT ["/linkstate-node-ext"]
