@@ -81,7 +81,6 @@ func (a *arangoDB) processPrefixSID(ctx context.Context, key, id string, e messa
 			}
 		}
 	}
-
 	return nil
 }
 

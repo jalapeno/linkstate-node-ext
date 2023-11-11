@@ -203,7 +203,6 @@ func (a *arangoDB) loadCollection() error {
 	defer cursor.Close()
 	for {
 		var p message.LSPrefix
-		//var p LSPfx
 		meta, err := cursor.ReadDocument(ctx, &p)
 		if driver.IsNoMoreDocuments(err) {
 			break
