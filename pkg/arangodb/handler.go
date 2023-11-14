@@ -17,11 +17,12 @@ func (a *arangoDB) lsNodeHandler(obj *notifier.EventMessage) error {
 		return fmt.Errorf("event message is nil")
 	}
 	// Check if Collection encoded in ID exists
+	//glog.Infof("handler received: %+v", obj)
 	c := strings.Split(obj.ID, "/")[0]
 	if strings.Compare(c, a.lsnode.Name()) != 0 {
 		return fmt.Errorf("configured collection name %s and received in event collection name %s do not match", a.lsnode.Name(), c)
 	}
-	glog.V(6).Infof("Processing action: %s for key: %s ID: %s", obj.Action, obj.Key, obj.ID)
+	glog.Infof("Processing action: %s for key: %s ID: %s", obj.Action, obj.Key, obj.ID)
 	var o message.LSNode
 	_, err := a.lsnode.ReadDocument(ctx, obj.Key, &o)
 	if err != nil {

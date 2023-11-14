@@ -35,13 +35,13 @@ type kafka struct {
 
 // NewKafkaMessenger returns an instance of a kafka consumer acting as a messenger server
 func NewKafkaMessenger(kafkaSrv string, db dbclient.DB) (Srv, error) {
-	glog.Infof("ls_srv6_sid Vertex kafka reader")
+	glog.Infof("ls events kafka reader")
 	if err := tools.HostAddrValidator(kafkaSrv); err != nil {
 		return nil, err
 	}
 
 	config := sarama.NewConfig()
-	config.ClientID = "ls-srv6sid-node-collection"
+	config.ClientID = "ls-node-collection"
 	config.Consumer.Return.Errors = true
 	config.Version = sarama.V0_11_0_0
 
@@ -99,6 +99,7 @@ func (k *kafka) topicReader(topicType dbclient.CollectionType, topicName string)
 				if msg == nil {
 					continue
 				}
+				//glog.Infof("event msg received %+v for topic %+v", msg, topicName)
 				if err := k.db.StoreMessage(topicType, msg.Value); err != nil {
 					glog.Errorf("failed to process a message from topic %s with error: %+v", topicName, err)
 				}
