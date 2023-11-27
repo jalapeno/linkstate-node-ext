@@ -59,7 +59,7 @@ type LSNodeExt struct {
 	PrefixSID            []*sr.PrefixSIDTLV              `json:"prefix_sid_tlv,omitempty"`
 	FlexAlgoPrefixMetric []*bgpls.FlexAlgoPrefixMetric   `json:"flex_algo_prefix_metric,omitempty"`
 	SRv6SID              string                          `json:"srv6_sid,omitempty"`
-	SIDS                 []*SID                          `json:"sids,omitempty"`
+	SIDS                 []SID                           `json:"sids,omitempty"`
 }
 
 type SID struct {

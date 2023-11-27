@@ -153,10 +153,10 @@ func (a *arangoDB) loadCollection() error {
 	// BGP-LS generates a level-1 and a level-2 entry for level-1-2 nodes
 	// remove duplicate entries in the lsnodeExt collection
 	dup_query := "LET duplicates = ( FOR d IN " + a.lsnodeExt.Name() +
-		" COLLECT id = d.igp_router_id, area = d.area_id WITH COUNT INTO count " +
-		" FILTER count > 1 RETURN { id: id, area: area, count: count }) " +
-		"FOR d IN duplicates FOR m IN ls_node_extended FILTER d.id == m.igp_router_id " +
-		"RETURN m "
+		" COLLECT id = d.igp_router_id, domain = d.domain_id, area = d.area_id WITH COUNT INTO count " +
+		" FILTER count > 1 RETURN { id: id, domain: domain, area: area, count: count }) " +
+		"FOR d IN duplicates FOR m IN ls_node_extended " +
+		"FILTER d.id == m.igp_router_id filter d.domain == m.domain_id RETURN m "
 	pcursor, err := a.db.Query(ctx, dup_query, nil)
 	if err != nil {
 		return err

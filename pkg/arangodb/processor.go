@@ -2,6 +2,7 @@ package arangodb
 
 import (
 	"context"
+	"strconv"
 
 	driver "github.com/arangodb/go-driver"
 	"github.com/golang/glog"
@@ -11,7 +12,8 @@ import (
 
 func (a *arangoDB) processLSSRv6SID(ctx context.Context, key, id string, e *message.LSSRv6SID) error {
 	query := "for l in " + a.lsnodeExt.Name() +
-		" filter l.igp_router_id == " + "\"" + e.IGPRouterID + "\""
+		" filter l.igp_router_id == " + "\"" + e.IGPRouterID + "\"" +
+		" filter l.domain_id == " + "\"" + strconv.Itoa(int(e.DomainID)) + "\""
 	query += " return l"
 	ncursor, err := a.db.Query(ctx, query, nil)
 	if err != nil {
@@ -26,28 +28,42 @@ func (a *arangoDB) processLSSRv6SID(ctx context.Context, key, id string, e *mess
 		}
 	}
 	glog.Infof("ls_node_extended %s + srv6sid %s", ns.Key, e.SRv6SID)
+	glog.Infof("existing sids: %+v", &sn.SIDS)
 
-	sids := []*SID{}
+	//sids := make([]SID, 0)
 
-	srv6sidstruct := SID{
+	newsid := SID{
 		SRv6SID:              e.SRv6SID,
 		SRv6EndpointBehavior: e.SRv6EndpointBehavior,
 		SRv6BGPPeerNodeSID:   e.SRv6BGPPeerNodeSID,
 		SRv6SIDStructure:     e.SRv6SIDStructure,
 	}
-
-	srn := LSNodeExt{
-		//SRv6SID: e.SRv6SID,
-		SIDS: append(sids, &srv6sidstruct),
-	}
-	glog.Infof("appending %s + srv6sid %+v", ns.Key, sids)
-
-	if _, err := a.lsnodeExt.UpdateDocument(ctx, ns.Key, &srn); err != nil {
-		if !driver.IsConflict(err) {
-			return err
+	var result bool = false
+	for _, x := range sn.SIDS {
+		if x == newsid {
+			result = true
+			break
 		}
 	}
+	if result {
+		glog.Infof("sid %+v exists in ls_node_extended document", e.SRv6SID)
+	} else {
 
+		// srn := LSNodeExt{
+		// 	SIDS: append(sids, newsid),
+		// }
+		sn.SIDS = append(sn.SIDS, newsid)
+		srn := LSNodeExt{
+			SIDS: sn.SIDS,
+		}
+		glog.Infof("appending %s + srv6sid %+v", ns.Key, newsid)
+
+		if _, err := a.lsnodeExt.UpdateDocument(ctx, ns.Key, &srn); err != nil {
+			if !driver.IsConflict(err) {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
