@@ -194,6 +194,7 @@ func (a *arangoDB) loadCollection() error {
 		}
 	}
 
+	// add sr-mpls prefix sids
 	sr_query := "for p in  " + a.lsprefix.Name() +
 		" filter p.mt_id_tlv.mt_id != 2 && p.prefix_attr_tlvs.ls_prefix_sid != null return p "
 	cursor, err = a.db.Query(ctx, sr_query, nil)
@@ -214,6 +215,7 @@ func (a *arangoDB) loadCollection() error {
 		}
 	}
 
+	// add srv6 sids
 	srv6_query := "for s in  " + a.lssrv6sid.Name() + " return s "
 	cursor, err = a.db.Query(ctx, srv6_query, nil)
 	if err != nil {
@@ -230,6 +232,26 @@ func (a *arangoDB) loadCollection() error {
 		}
 		if err := a.processLSSRv6SID(ctx, meta.Key, meta.ID.String(), &p); err != nil {
 			glog.Errorf("Failed to process ls_srv6_sid %s with error: %+v", p.ID, err)
+		}
+	}
+
+	// add ipv6 iBGP peering address
+	ibgp6_query := "for s in peer filter s.remote_ip like " + "\"%:%\"" + " return s "
+	cursor, err = a.db.Query(ctx, ibgp6_query, nil)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close()
+	for {
+		var p message.PeerStateChange
+		meta, err := cursor.ReadDocument(ctx, &p)
+		if driver.IsNoMoreDocuments(err) {
+			break
+		} else if err != nil {
+			return err
+		}
+		if err := a.processibgp6(ctx, meta.Key, meta.ID.String(), &p); err != nil {
+			glog.Errorf("Failed to process ibgp peering %s with error: %+v", p.ID, err)
 		}
 	}
 

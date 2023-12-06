@@ -68,3 +68,7 @@ type SID struct {
 	SRv6BGPPeerNodeSID   *srv6.BGPPeerNodeSID   `json:"srv6_bgp_peer_node_sid,omitempty"`
 	SRv6SIDStructure     *srv6.SIDStructure     `json:"srv6_sid_structure,omitempty"`
 }
+
+type peerObject struct {
+	BGPRouterID string `json:"router_id_v6,omitempty"`
+}
