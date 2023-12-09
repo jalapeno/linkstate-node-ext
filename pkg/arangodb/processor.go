@@ -55,7 +55,7 @@ func (a *arangoDB) processLSSRv6SID(ctx context.Context, key, id string, e *mess
 		srn := LSNodeExt{
 			SIDS: sn.SIDS,
 		}
-		glog.Infof("appending %s + srv6sid %+v", ns.Key, newsid)
+		glog.Infof("appending sid %+v ", e.Key)
 
 		if _, err := a.lsnodeExt.UpdateDocument(ctx, ns.Key, &srn); err != nil {
 			if !driver.IsConflict(err) {
@@ -121,7 +121,7 @@ func (a *arangoDB) processLSNodeExt(ctx context.Context, key string, e *message.
 	}
 
 	if _, err := a.lsnodeExt.CreateDocument(ctx, &sn); err != nil {
-		glog.Infof("adding ls_node_extnended: %s ", sn.Key)
+		glog.Infof("adding ls_node_extended: %s with area_id %s ", sn.Key, e.AreaID)
 		if !driver.IsConflict(err) {
 			return err
 		}
@@ -140,16 +140,55 @@ func (a *arangoDB) processLSNodeExt(ctx context.Context, key string, e *message.
 	if err := a.processLSNodeExt(ctx, ns.Key, e); err != nil {
 		glog.Errorf("Failed to process ls_node_extended %s with error: %+v", ns.Key, err)
 	}
-	//return nil
+	return nil
+}
 
+func (a *arangoDB) findPrefixSID(ctx context.Context, key string, e *message.LSNode) error {
+	query := "for l in " + a.lsprefix.Name() +
+		" filter l.igp_router_id == " + "\"" + e.IGPRouterID + "\"" +
+		" filter l.prefix_attr_tlvs.ls_prefix_sid != null"
+	query += " return l"
+	ncursor, err := a.db.Query(ctx, query, nil)
+	if err != nil {
+		return err
+	}
+	defer ncursor.Close()
+	var lp message.LSPrefix
+	pl, err := ncursor.ReadDocument(ctx, &lp)
+	if err != nil {
+		if !driver.IsNoMoreDocuments(err) {
+			return err
+		}
+	}
+	obj := srObject{
+		PrefixAttrTLVs: lp.PrefixAttrTLVs,
+	}
+	if _, err := a.lsnodeExt.UpdateDocument(ctx, e.Key, &obj); err != nil {
+		glog.V(5).Infof("adding prefix sid: %s ", pl.Key)
+		return err
+	}
+
+	//if err := a.dedupeLSNodeExt(ctx, e.Key, e); err != nil {
+	if err := a.dedupeLSNodeExt(); err != nil {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// func (a *arangoDB) dedupeLSNodeExt(ctx context.Context, key string, e *message.LSNode) error {
+func (a *arangoDB) dedupeLSNodeExt() error {
+	ctx := context.TODO()
 	// BGP-LS generates a level-1 and a level-2 entry for level-1-2 nodes
 	// remove duplicate entries in the lsnodeExt collection
 	dup_query := "LET duplicates = ( FOR d IN " + a.lsnodeExt.Name() +
-		" COLLECT id = d.igp_router_id, domain = d.domain_id, area = d.area_id WITH COUNT INTO count " +
-		" FILTER count > 1 RETURN { id: id, domain: domain, area: area, count: count }) " +
+		" COLLECT id = d.igp_router_id, domain = d.domain_id WITH COUNT INTO count " +
+		" FILTER count > 1 RETURN { id: id, domain: domain, count: count }) " +
 		"FOR d IN duplicates FOR m IN ls_node_extended " +
 		"FILTER d.id == m.igp_router_id filter d.domain == m.domain_id RETURN m "
 	pcursor, err := a.db.Query(ctx, dup_query, nil)
+	glog.Infof("dedup query: %+v", dup_query)
 	if err != nil {
 		return err
 	}
@@ -184,34 +223,6 @@ func (a *arangoDB) processLSNodeExt(ctx context.Context, key string, e *message.
 			}
 			defer cursor.Close()
 		}
-	}
-	return nil
-
-}
-
-func (a *arangoDB) findPrefixSID(ctx context.Context, key string, e *message.LSNode) error {
-	query := "for l in " + a.lsprefix.Name() +
-		" filter l.igp_router_id == " + "\"" + e.IGPRouterID + "\"" +
-		" filter l.prefix_attr_tlvs.ls_prefix_sid != null"
-	query += " return l"
-	ncursor, err := a.db.Query(ctx, query, nil)
-	if err != nil {
-		return err
-	}
-	defer ncursor.Close()
-	var lp message.LSPrefix
-	pl, err := ncursor.ReadDocument(ctx, &lp)
-	if err != nil {
-		if !driver.IsNoMoreDocuments(err) {
-			return err
-		}
-	}
-	obj := srObject{
-		PrefixAttrTLVs: lp.PrefixAttrTLVs,
-	}
-	if _, err := a.lsnodeExt.UpdateDocument(ctx, e.Key, &obj); err != nil {
-		glog.V(5).Infof("adding prefix sid: %s ", pl.Key)
-		return err
 	}
 	return nil
 }
