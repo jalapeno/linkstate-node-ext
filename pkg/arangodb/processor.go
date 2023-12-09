@@ -17,7 +17,6 @@ func (a *arangoDB) processLSSRv6SID(ctx context.Context, key, id string, e *mess
 	//" filter l.domain_id == " + "\"" + strconv.Itoa(int(e.DomainID)) + "\""
 	query += " return l"
 	ncursor, err := a.db.Query(ctx, query, nil)
-	glog.Infof("query: %+v", query)
 	if err != nil {
 		return err
 	}
@@ -29,10 +28,8 @@ func (a *arangoDB) processLSSRv6SID(ctx context.Context, key, id string, e *mess
 			return err
 		}
 	}
-	glog.Infof("ls_node_extended %s + srv6sid %s", ns.Key, e.SRv6SID)
-	glog.Infof("existing sids: %+v", &sn.SIDS)
-
-	//sids := make([]SID, 0)
+	// glog.Infof("ls_node_extended %s + srv6sid %s", ns.Key, e.SRv6SID)
+	// glog.Infof("existing sids: %+v", &sn.SIDS)
 
 	newsid := SID{
 		SRv6SID:              e.SRv6SID,
@@ -124,7 +121,7 @@ func (a *arangoDB) processLSNodeExt(ctx context.Context, key string, e *message.
 	}
 
 	if _, err := a.lsnodeExt.CreateDocument(ctx, &sn); err != nil {
-		glog.V(5).Infof("adding ls_node_extnended: %s ", sn.Key)
+		glog.Infof("adding ls_node_extnended: %s ", sn.Key)
 		if !driver.IsConflict(err) {
 			return err
 		}
@@ -143,7 +140,53 @@ func (a *arangoDB) processLSNodeExt(ctx context.Context, key string, e *message.
 	if err := a.processLSNodeExt(ctx, ns.Key, e); err != nil {
 		glog.Errorf("Failed to process ls_node_extended %s with error: %+v", ns.Key, err)
 	}
+	//return nil
+
+	// BGP-LS generates a level-1 and a level-2 entry for level-1-2 nodes
+	// remove duplicate entries in the lsnodeExt collection
+	dup_query := "LET duplicates = ( FOR d IN " + a.lsnodeExt.Name() +
+		" COLLECT id = d.igp_router_id, domain = d.domain_id, area = d.area_id WITH COUNT INTO count " +
+		" FILTER count > 1 RETURN { id: id, domain: domain, area: area, count: count }) " +
+		"FOR d IN duplicates FOR m IN ls_node_extended " +
+		"FILTER d.id == m.igp_router_id filter d.domain == m.domain_id RETURN m "
+	pcursor, err := a.db.Query(ctx, dup_query, nil)
+	if err != nil {
+		return err
+	}
+	defer pcursor.Close()
+	for {
+		var doc duplicateNode
+		dupe, err := pcursor.ReadDocument(ctx, &doc)
+
+		if err != nil {
+			if !driver.IsNoMoreDocuments(err) {
+				return err
+			}
+			break
+		}
+		glog.Infof("Got doc with key '%s' from query\n", dupe.Key)
+
+		if doc.ProtocolID == 1 {
+			glog.Infof("remove level-1 duplicate node: %s + igp id: %s area id: %s protocol id: %v +  ", doc.Key, doc.IGPRouterID, doc.AreaID, doc.ProtocolID)
+			if _, err := a.lsnodeExt.RemoveDocument(ctx, doc.Key); err != nil {
+				if !driver.IsConflict(err) {
+					return err
+				}
+			}
+		}
+		if doc.ProtocolID == 2 {
+			update_query := "for l in " + a.lsnodeExt.Name() + " filter l._key == " + "\"" + doc.Key + "\"" +
+				" UPDATE l with { protocol: " + "\"" + "ISIS Level 1-2" + "\"" + " } in " + a.lsnodeExt.Name() + ""
+			cursor, err := a.db.Query(ctx, update_query, nil)
+			glog.Infof("update query: %s ", update_query)
+			if err != nil {
+				return err
+			}
+			defer cursor.Close()
+		}
+	}
 	return nil
+
 }
 
 func (a *arangoDB) findPrefixSID(ctx context.Context, key string, e *message.LSNode) error {
