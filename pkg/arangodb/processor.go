@@ -167,8 +167,6 @@ func (a *arangoDB) findPrefixSID(ctx context.Context, key string, e *message.LSN
 		glog.V(5).Infof("adding prefix sid: %s ", pl.Key)
 		return err
 	}
-
-	//if err := a.dedupeLSNodeExt(ctx, e.Key, e); err != nil {
 	if err := a.dedupeLSNodeExt(); err != nil {
 		if err != nil {
 			return err
@@ -177,7 +175,6 @@ func (a *arangoDB) findPrefixSID(ctx context.Context, key string, e *message.LSN
 	return nil
 }
 
-// func (a *arangoDB) dedupeLSNodeExt(ctx context.Context, key string, e *message.LSNode) error {
 func (a *arangoDB) dedupeLSNodeExt() error {
 	ctx := context.TODO()
 	// BGP-LS generates a level-1 and a level-2 entry for level-1-2 nodes
