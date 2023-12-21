@@ -8,13 +8,13 @@ import (
 )
 
 type duplicateNode struct {
-	Key         string       `json:"_key,omitempty"`
-	DomainID    int64        `json:"domain_id"`
-	IGPRouterID string       `json:"igp_router_id,omitempty"`
-	AreaID      string       `json:"area_id"`
-	Protocol    string       `json:"protocol,omitempty"`
-	ProtocolID  base.ProtoID `json:"protocol_id,omitempty"`
-	Name        string       `json:"name,omitempty"`
+	Key         string `json:"_key,omitempty"`
+	DomainID    int64  `json:"domain_id"`
+	IGPRouterID string `json:"igp_router_id,omitempty"`
+	//AreaID      string       `json:"area_id"`
+	Protocol   string       `json:"protocol,omitempty"`
+	ProtocolID base.ProtoID `json:"protocol_id,omitempty"`
+	Name       string       `json:"name,omitempty"`
 }
 
 type srObject struct {
@@ -40,7 +40,6 @@ type LSNodeExt struct {
 	ASN                  uint32                          `json:"asn,omitempty"`
 	LSID                 uint32                          `json:"ls_id,omitempty"`
 	MTID                 []*base.MultiTopologyIdentifier `json:"mt_id_tlv,omitempty"`
-	AreaID               string                          `json:"area_id"`
 	Protocol             string                          `json:"protocol,omitempty"`
 	ProtocolID           base.ProtoID                    `json:"protocol_id,omitempty"`
 	NodeFlags            *bgpls.NodeAttrFlags            `json:"node_flags,omitempty"`

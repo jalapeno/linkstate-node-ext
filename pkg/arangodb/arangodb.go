@@ -175,7 +175,8 @@ func (a *arangoDB) loadCollection() error {
 		glog.Infof("Got doc with key '%s' from query\n", dupe.Key)
 
 		if doc.ProtocolID == 1 {
-			glog.Infof("remove level-1 duplicate node: %s + igp id: %s area id: %s protocol id: %v +  ", doc.Key, doc.IGPRouterID, doc.AreaID, doc.ProtocolID)
+			glog.Infof("remove level-1 duplicate node: %s + igp id: %s protocol id: %v +  ", doc.Key, doc.IGPRouterID, doc.ProtocolID)
+			//glog.Infof("remove level-1 duplicate node: %s + igp id: %s area id: %s protocol id: %v +  ", doc.Key, doc.IGPRouterID, doc.AreaID, doc.ProtocolID)
 			if _, err := a.lsnodeExt.RemoveDocument(ctx, doc.Key); err != nil {
 				if !driver.IsConflict(err) {
 					return err
