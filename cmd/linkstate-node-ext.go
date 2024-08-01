@@ -36,6 +36,7 @@ var (
 	lssrv6sid  string
 	lsnode     string
 	lsnodeExt  string
+	igpdomain  string
 )
 
 func init() {
@@ -46,8 +47,8 @@ func init() {
 	flag.StringVar(&dbUser, "database-user", "", "DB User name")
 	flag.StringVar(&dbPass, "database-pass", "", "DB User's password")
 
-	// flag.StringVar(&msgSrvAddr, "message-server", "198.18.133.103:30092", "URL to the messages supplying server")
-	// flag.StringVar(&dbSrvAddr, "database-server", "http://198.18.133.103:30852", "{dns name}:port or X.X.X.X:port of the graph database")
+	// flag.StringVar(&msgSrvAddr, "message-server", "198.18.133.104:30092", "URL to the messages supplying server")
+	// flag.StringVar(&dbSrvAddr, "database-server", "http://198.18.133.104:30852", "{dns name}:port or X.X.X.X:port of the graph database")
 	// flag.StringVar(&dbName, "database-name", "jalapeno", "DB name")
 	// flag.StringVar(&dbUser, "database-user", "root", "DB User name")
 	// flag.StringVar(&dbPass, "database-pass", "jalapeno", "DB User's password")
@@ -56,6 +57,7 @@ func init() {
 	flag.StringVar(&lssrv6sid, "ls_srv6_sid", "ls_srv6_sid", "ls_srv6_sid Collection name, default: \"ls_srv6_sid\"")
 	flag.StringVar(&lsnode, "ls_node", "ls_node", "ls_node Collection name, default \"ls_node\"")
 	flag.StringVar(&lsnodeExt, "ls_node_extended", "ls_node_extended", "ls_node_extended Collection name, default \"ls_node_extended\"")
+	flag.StringVar(&igpdomain, "igp_domain", "igp_domain", "igp_domain Collection name, default \"igp_domain\"")
 }
 
 var (
@@ -90,7 +92,7 @@ func main() {
 		glog.Errorf("failed to validate the database credentials with error: %+v", err)
 		os.Exit(1)
 	}
-	dbSrv, err := arangodb.NewDBSrvClient(dbSrvAddr, dbUser, dbPass, dbName, lsprefix, lssrv6sid, lsnode, lsnodeExt)
+	dbSrv, err := arangodb.NewDBSrvClient(dbSrvAddr, dbUser, dbPass, dbName, lsprefix, lssrv6sid, lsnode, lsnodeExt, igpdomain)
 	if err != nil {
 		glog.Errorf("failed to initialize databse client with error: %+v", err)
 		os.Exit(1)

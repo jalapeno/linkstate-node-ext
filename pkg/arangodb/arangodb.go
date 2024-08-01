@@ -21,10 +21,11 @@ type arangoDB struct {
 	lssrv6sid driver.Collection
 	lsnode    driver.Collection
 	lsnodeExt driver.Collection
+	igpdomain driver.Collection
 }
 
 // NewDBSrvClient returns an instance of a DB server client process
-func NewDBSrvClient(arangoSrv, user, pass, dbname, lsprefix, lssrv6sid, lsnode, lsnodeExt string) (dbclient.Srv, error) {
+func NewDBSrvClient(arangoSrv, user, pass, dbname, lsprefix, lssrv6sid, lsnode, lsnodeExt string, igpdomain string) (dbclient.Srv, error) {
 	if err := tools.URLAddrValidation(arangoSrv); err != nil {
 		return nil, err
 	}
@@ -73,7 +74,7 @@ func NewDBSrvClient(arangoSrv, user, pass, dbname, lsprefix, lssrv6sid, lsnode, 
 			return nil, err
 		}
 	}
-	// create sr node collection
+	// create lsnode extended collection
 	var lsnodeExt_options = &driver.CreateCollectionOptions{ /* ... */ }
 	glog.V(5).Infof("ls_node_extended not found, creating")
 	arango.lsnodeExt, err = arango.db.CreateCollection(context.TODO(), "ls_node_extended", lsnodeExt_options)
@@ -82,6 +83,36 @@ func NewDBSrvClient(arangoSrv, user, pass, dbname, lsprefix, lssrv6sid, lsnode, 
 	}
 	// check if collection exists, if not fail as processor has failed to create collection
 	arango.lsnodeExt, err = arango.db.Collection(context.TODO(), lsnodeExt)
+	if err != nil {
+		return nil, err
+	}
+
+	// 	return arango, nil
+	// }
+
+	// check for igp_domain collection
+	found, err = arango.db.CollectionExists(context.TODO(), igpdomain)
+	if err != nil {
+		return nil, err
+	}
+	if found {
+		c, err := arango.db.Collection(context.TODO(), igpdomain)
+		if err != nil {
+			return nil, err
+		}
+		if err := c.Remove(context.TODO()); err != nil {
+			return nil, err
+		}
+	}
+	// create igp_domain collection
+	var igpdomain_options = &driver.CreateCollectionOptions{ /* ... */ }
+	glog.V(5).Infof("igp_domain collection not found, creating")
+	arango.igpdomain, err = arango.db.CreateCollection(context.TODO(), "igp_domain", igpdomain_options)
+	if err != nil {
+		return nil, err
+	}
+	// check if collection exists, if not fail as processor has failed to create collection
+	arango.igpdomain, err = arango.db.Collection(context.TODO(), igpdomain)
 	if err != nil {
 		return nil, err
 	}
@@ -255,6 +286,17 @@ func (a *arangoDB) loadCollection() error {
 			glog.Errorf("Failed to process ibgp peering %s with error: %+v", p.ID, err)
 		}
 	}
+
+	// create igp_domain collection
+	igpdomain_query := "for l in ls_node_extended insert " +
+		"{ _key: CONCAT_SEPARATOR(" + "\"_\", l.protocol_id, l.domain_id, l.asn), " +
+		"asn: l.asn, protocol_id: l.protocol_id, domain_id: l.domain_id, protocol: l.protocol } " +
+		"into igp_domain OPTIONS { ignoreErrors: true } return l"
+	cursor, err = a.db.Query(ctx, igpdomain_query, nil)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close()
 
 	return nil
 }

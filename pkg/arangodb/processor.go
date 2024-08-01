@@ -140,6 +140,13 @@ func (a *arangoDB) processLSNodeExt(ctx context.Context, key string, e *message.
 	if err := a.processLSNodeExt(ctx, ns.Key, e); err != nil {
 		glog.Errorf("Failed to process ls_node_extended %s with error: %+v", ns.Key, err)
 	}
+
+	if err := a.processIgpDomain(ctx, ns.Key, e); err != nil {
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -285,5 +292,50 @@ func (a *arangoDB) processLSNodeExtRemoval(ctx context.Context, key string) erro
 		}
 	}
 
+	return nil
+}
+
+func (a *arangoDB) processIgpDomain(ctx context.Context, key string, e *message.LSNode) error {
+	if e.ProtocolID == base.BGP {
+		// EPE Case cannot be processed because LS Node collection does not have BGP routers
+		return nil
+	}
+	query := "for l in ls_node_extended insert " +
+		"{ _key: CONCAT_SEPARATOR(" + "\"_\", l.protocol_id, l.domain_id, l.asn), " +
+		"asn: l.asn, protocol_id: l.protocol_id, domain_id: l.domain_id, protocol: l.protocol } " +
+		"into igp_domain OPTIONS { ignoreErrors: true } "
+	query += " return l"
+	ncursor, err := a.db.Query(ctx, query, nil)
+	if err != nil {
+		return err
+	}
+	defer ncursor.Close()
+	var sn LSNodeExt
+	ns, err := ncursor.ReadDocument(ctx, &sn)
+	if err != nil {
+		if !driver.IsNoMoreDocuments(err) {
+			return err
+		}
+	}
+
+	if _, err := a.igpdomain.CreateDocument(ctx, &sn); err != nil {
+		glog.Infof("adding igp_domain: %s with area_id %s ", sn.Key, e.ASN)
+		if !driver.IsConflict(err) {
+			return err
+		}
+		if err := a.findPrefixSID(ctx, sn.Key, e); err != nil {
+			if err != nil {
+				return err
+			}
+		}
+		// The document already exists, updating it with the latest info
+		if _, err := a.igpdomain.UpdateDocument(ctx, ns.Key, e); err != nil {
+			return err
+		}
+		return nil
+	}
+	if err := a.processIgpDomain(ctx, ns.Key, e); err != nil {
+		glog.Errorf("Failed to process igp_domain %s with error: %+v", ns.Key, err)
+	}
 	return nil
 }
